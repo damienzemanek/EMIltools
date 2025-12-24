@@ -8,7 +8,7 @@ namespace EMILtools.Timers
     [Serializable]
     public abstract class Timer
     {
-        //Test 4
+        //Test 5
         
         protected Reference<float> initialTime;
         protected float Time { get; set; }
