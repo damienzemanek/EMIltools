@@ -1,8 +1,9 @@
-# EMILtools
-## This is a architectural system for Unity
+# EMILtools Architectural System
 ### Included is:
-### EMILtimers, a lightweight timer utility designed to replace contant update calls on dozens to hundreds of Monobehaviours all calling on their own timers, with a centralized high-performance tick-based system. 
-### Signals, a reactive EventBus with configuration for Reactive events, Modifiers, and Validation (called Intercepts)
+### EMILtimers
+#### a lightweight timer utility designed to replace contant update calls on dozens to hundreds of Monobehaviours all calling on their own timers, with a centralized high-performance tick-based system. 
+### Signals
+#### a reactive EventBus with configuration for Reactive events, Modifiers, and Validation (called Intercepts)
 
 
 
