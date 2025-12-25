@@ -6,7 +6,9 @@ namespace EMILtools.Timers
     [Serializable]
     public class CountdownTimer : Timer
     {
-        public CountdownTimer(Reference<float> _initialTime) : base(_initialTime) { }
+        public CountdownTimer(Ref<float> _initialTime) : base(_initialTime) { }
+        public CountdownTimer(float _initialTime) : base(new Ref<float>(_initialTime)) { }
+
 
         public override void TickImplementation(float deltaTime)
         {

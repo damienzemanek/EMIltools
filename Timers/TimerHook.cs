@@ -1,4 +1,5 @@
 ﻿using System;
+using EMILtools.Core;
 
 namespace EMILtools
 {
@@ -21,12 +22,12 @@ namespace EMILtools
         /// </remarks>
         public sealed class TimerHook
         {
-            private readonly TimerEventDecorator targEvent;
+            private readonly ActionDecorator targEvent;
             readonly Action cb;
             
-            public TimerEventDecorator Event => targEvent;
+            public ActionDecorator Event => targEvent;
                 
-            public TimerHook(TimerEventDecorator _targEvent, Action _cb)
+            public TimerHook(ActionDecorator _targEvent, Action _cb)
             {
                 targEvent = _targEvent;
                 cb = _cb;

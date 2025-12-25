@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Runtime.CompilerServices;
+using EMILtools.Core;
 using EMILtools.Extensions;
 using UnityEngine;
 using Object = UnityEngine.Object;
@@ -53,6 +54,13 @@ namespace EMILtools.Timers
             
             public interface ITimerUser { }
             
+            /// <summary>
+            /// Adds timers to the global buffers.
+            /// You still need to call Start() on the timers to run them
+            /// </summary>
+            /// <param name="itimeruser"></param>
+            /// <param name="initialize"></param>
+            /// <returns></returns>
             public static ITimerUser InitializeTimers(this ITimerUser itimeruser, params (Timer timer, bool isFixed)[] initialize)
             {
                 if(initialize == null || initialize.Length == 0) return itimeruser;
@@ -76,7 +84,7 @@ namespace EMILtools.Timers
                 return itimeruser;
             }
             
-            public static ITimerUser Sub(this ITimerUser itimeruser, TimerEventDecorator targEvent, Action cb)
+            public static ITimerUser Sub(this ITimerUser itimeruser, ActionDecorator targEvent, Action cb)
             {
                 if(targEvent == null || cb == null) return itimeruser;
 

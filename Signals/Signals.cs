@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using EMILtools.Core;
 using UnityEngine;
 using Sirenix.OdinInspector;
 
@@ -7,7 +8,7 @@ namespace EMILtools.Signals
 {
         [Serializable]
         [InlineProperty]
-        public class Reference<T> where T : IEquatable<T>
+        public class Ref<T> where T : IEquatable<T>
         {
             /// <summary>
             /// Backing field for the base value, Specifically for the custom drawer
@@ -23,19 +24,19 @@ namespace EMILtools.Signals
             /// Public facing getter and setters for the actual value
             /// </summary>
             public virtual T Value { get => val; set => val = value;}
-            public Reference(T initialValue) => val = initialValue;
+            public Ref(T initialValue) => val = initialValue;
         }
         
         /// <summary>
-        /// A Reference that can have Modifiers applied to it.
-        /// Modifiers are functions that take in the base value and use FuncT T modifiers (that are 
+        /// A Multi-configurable event bus variable
+        /// - Modifiers are functions that take in the base value and use FuncT T modifiers (that are 
         ///     not lambdas) to return a separate calculated value. The order matters
-        /// Intercepts are functions that intercept changes to the base value and Validate and Mutate it before it is stored.
-        /// Reactions are actions that are called when the base value changes.
+        /// - Intercepts are functions that intercept changes to the base value and Validate and Mutate it before it is stored.
+        /// - Reactions are actions that are called when the base value changes.
         /// </summary>
         /// <typeparam name="T"></typeparam>
         [Serializable]
-        public sealed class ReferenceModifiable<T> : Reference<T> where T : IEquatable<T>
+        public sealed class Stat<T> : Ref<T> where T : IEquatable<T>
         {
             /// <summary>
             /// Used for INTERCEPTS when changed but before NOTIFY.
@@ -72,15 +73,23 @@ namespace EMILtools.Signals
                 get => (HasModifiers && !blockIntercepts) ? calculated : val;
                 set => val = value;
             }
-            
-            public List<Func<T, T>> Modifiers = new List<Func<T, T>>();
-            public List<Func<T, T>> Intercepts = new List<Func<T, T>>();
-            public Action<T> Reactions;
-            bool HasModifiers => Modifiers.Count > 0;
-            bool HasIntercepts => Intercepts.Count > 0;
 
-            public ReferenceModifiable(T initialValue) : base(initialValue) => Calculate();
+            // Not initialized here to save on memory, When using lazy initialize
+            private List<Func<T, T>> _modifiers;
+            private List<Func<T, T>> _intercepts;
             
+            // Access for Configurations
+            public IReadOnlyList<Func<T, T>> Modifiers => _modifiers;
+            public IReadOnlyList<Func<T, T>> Intercepts => _intercepts;
+            public event Action<T> Reactions; //Kept as event so outside scripts can't invoke it directly
+            
+            
+            bool HasModifiers => _modifiers != null && _modifiers.Count > 0;
+            bool HasIntercepts => _intercepts != null && _intercepts.Count > 0;
+
+            public Stat(T initialValue) : base(initialValue) => Calculate();
+            
+            // Settings
             [SerializeField] private bool _blockIntercepts = false;
             public bool blockIntercepts
             {
@@ -112,16 +121,19 @@ namespace EMILtools.Signals
             
             
             /// <summary>
+            /// Modifiers are functions that modify the base value and replace the Value getter with the calcualted value
+            /// Example: Player picked up "Speed" ability. Player speed is increased
             /// Order of modifiers applied matters
             /// Do not use Inline Lambdas because they will be different instances and cannot be removed later
             /// </summary>
             /// <param name="modifier"></param>
             /// <returns></returns>
-            public ReferenceModifiable<T> AddModifier(Func<T, T> modifier)
+            public Stat<T> AddModifier(Func<T, T> modifier)
             {
-                if (Modifiers.Contains(modifier)) return this;
+                if(Modifiers == null) _modifiers = new List<Func<T, T>>();
+                if (_modifiers.Contains(modifier)) return this;
                 
-                Modifiers.Add(modifier);
+                _modifiers.Add(modifier);
                 Calculate();
                 return this;
             }
@@ -131,30 +143,33 @@ namespace EMILtools.Signals
             /// </summary>
             /// <param name="modifier"></param>
             /// <returns></returns>
-            public ReferenceModifiable<T> RemoveModifier(Func<T, T> modifier)
+            public Stat<T> RemoveModifier(Func<T, T> modifier)
             {
-                if (!Modifiers.Remove(modifier)) return this;
+                if (!_modifiers.Remove(modifier)) return this;
                 Calculate();
                 return this;
             }
 
             /// <summary>
+            /// Intercepts are called before the base value is changed.
+            /// Example: Player looses health, health is clamped to a minimum of 0
             /// 1st T is the input value, 2nd T is the output value
             /// </summary>
             /// <param name="intercept"></param>
             /// <returns></returns>
-            public ReferenceModifiable<T> AddIntercept(Func<T, T> intercept)
+            public Stat<T> AddIntercept(Func<T, T> intercept)
             {
-                if (Intercepts.Contains(intercept)) return this;
-                Intercepts.Add(intercept);
+                if(Intercepts == null) _intercepts = new List<Func<T, T>>();
+                if (_intercepts.Contains(intercept)) return this;
+                _intercepts.Add(intercept);
                 RefreshIntercept();
                 return this;
 
             }
             
-            public ReferenceModifiable<T> RemoveIntercept(Func<T, T> intercept)
+            public Stat<T> RemoveIntercept(Func<T, T> intercept)
             {
-                Intercepts.Remove(intercept);
+                _intercepts.Remove(intercept);
                 RefreshIntercept();
                 return this;
             }
@@ -162,13 +177,20 @@ namespace EMILtools.Signals
             void RefreshIntercept() => val = val;
             
 
-            public ReferenceModifiable<T> AddReaction(Action<T> reaction)
+            /// <summary>
+            /// Reactions events that are called when the base value changes
+            /// Example: Player looses health, an "On Hit" event is called
+            /// </summary>
+            /// <param name="reaction"></param>
+            /// <returns></returns>
+            public Stat<T> AddReaction(Action<T> reaction)
             {
+                if(Reactions == null) Reactions = reaction;
                 Reactions += reaction;
                 return this;
             }
 
-            public ReferenceModifiable<T> RemoveReaction(Action<T> reaction)
+            public Stat<T> RemoveReaction(Action<T> reaction)
             {
                 Reactions -= reaction;
                 return this;
@@ -178,9 +200,9 @@ namespace EMILtools.Signals
             /// <summary>
             /// Implicit conversion so we can treat this object like its raw value T in math or logic
             /// </summary>
-            /// <param name="rmod"></param>
+            /// <param name="r"></param>
             /// <returns></returns>
-            public static implicit operator T(ReferenceModifiable<T> r) => (r != null) ? r.Value : default;
+            public static implicit operator T(Stat<T> r) => (r != null) ? r.Value : default;
             
         }
     

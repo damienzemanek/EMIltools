@@ -1,6 +1,7 @@
 ﻿using System;
 using EMILtools.Extensions;
 using EMILtools.Signals;
+using EMILtools.Core;
 
 namespace EMILtools.Timers
 {
@@ -9,17 +10,17 @@ namespace EMILtools.Timers
     {
         //Test 6
         
-        protected Reference<float> initialTime;
+        protected Ref<float> initialTime;
         protected float Time { get; set; }
 
         public bool isRunning { get; protected set; } = false;
         public float Progress => Time / initialTime.Value;
 
-        public TimerEventDecorator OnTimerStart = new();
-        public TimerEventDecorator OnTimerStop = new();
-        public TimerEventDecorator OnTimerTick = new();
+        public ActionDecorator OnTimerStart = new();
+        public ActionDecorator OnTimerStop = new();
+        public ActionDecorator OnTimerTick = new();
 
-        public Timer(Reference<float> _initialTime)
+        public Timer(Ref<float> _initialTime)
         {
             initialTime = _initialTime;
             isRunning = false;
