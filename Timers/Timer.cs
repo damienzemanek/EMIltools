@@ -1,7 +1,6 @@
 ﻿using System;
 using EMILtools.Extensions;
-using Extensions;
-using static EMILtools.SignalUtility;
+using EMILtools.Signals;
 
 namespace EMILtools.Timers
 {

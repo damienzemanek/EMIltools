@@ -1,5 +1,5 @@
 ﻿using System;
-using static EMILtools.SignalUtility;
+using EMILtools.Signals;
 
 namespace EMILtools.Timers
 {

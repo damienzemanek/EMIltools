@@ -3,10 +3,8 @@ using System.Collections.Generic;
 using UnityEngine;
 using Sirenix.OdinInspector;
 
-namespace EMILtools
+namespace EMILtools.Signals
 {
-    public static class SignalUtility
-    {
         [Serializable]
         [InlineProperty]
         public class Reference<T> where T : IEquatable<T>
@@ -185,7 +183,5 @@ namespace EMILtools
             public static implicit operator T(ReferenceModifiable<T> r) => (r != null) ? r.Value : default;
             
         }
-
-    }
     
 }
