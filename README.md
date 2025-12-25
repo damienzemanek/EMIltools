@@ -15,9 +15,6 @@
 - Physics Seperation: Native support for Update and FixeUpdate buffers, ensureing physics-dependant timers run without unwanted variability
 - Fast Shutdown of Timers: Uses the Swap-back pattern for constant-time removal of timers from the buffers during object destruction
 
-## Installation (UPM)
-Add the following URL to the Unity Package Manager: https://github.com/damienzemanek/EMILtimers.git
-
 ## Usage: Transform messy timer logic into a clean declarative and developer oriented chain:
 ### Example: Implementatition of a fireball ability
 
