@@ -25,7 +25,8 @@ namespace EMILtools.Signals
             public readonly Dictionary<Type, Action<IStatModStrategy>> AddModifierCache = new();
         }
         
-        public static void ModifyStatUser(this IStatUser recipient, IStatModStrategy strategy)
+        public static void ModifyStatUser<T>(this IStatUser recipient, IStatModStrategy<T> strategy)
+            where T : struct, IEquatable<T>
         {
             if (!instanceRegistry.TryGetValue(recipient, out ModifierRouter router)) return;
             Debug.Log($"Retrieved Recicpient Router : {recipient}");
@@ -69,16 +70,16 @@ namespace EMILtools.Signals
                 Debug.Log("Retrieved instance and method for Stat Field: " + field.Name +
                           " on IStatUser: " + istatuser);
                 
-                Action<IStatModStrategy> cb = (strategy) =>
-                {
-                    Debug.Log("Attempting to invoke instance.AddModifier for Stat Field: " + field.Name +
-                              " on IStatUser: " + istatuser + " with strategy: " + strategy);
-                    method.Invoke(instance, new object[] { strategy });
-                };
+                // Action<IStatModStrategy> cb = (strategy) =>
+                // {
+                //     Debug.Log("Attempting to invoke instance.AddModifier for Stat Field: " + field.Name +
+                //               " on IStatUser: " + istatuser + " with strategy: " + strategy);
+                //     method.Invoke(instance, new object[] { strategy });
+                // };
                 
                 
                 // Using ExpressionTrees to avoid object[]{} boxing
-                //Action<IStatModStrategy> cb = BindAction<IStatModStrategy>(instance, method);
+                Action<IStatModStrategy> cb = BindAction<IStatModStrategy>(instance, method);
                 if (cb == null) continue;
                 
                 Debug.Log("Created callback for Stat Field: " + field.Name +

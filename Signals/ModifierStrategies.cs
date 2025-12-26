@@ -5,37 +5,32 @@ namespace EMILtools.Signals
 {
     public static class ModifierStrategies
     {
-        public interface IStatModStrategy
+        /// <summary>
+        /// Used for storage of different strategy types in a single collection
+        /// </summary>
+        public interface IStatModStrategy { }
+        
+        /// <summary>
+        /// Used for invoke chaining
+        /// </summary>
+        public interface IStatModStrategy<T> : IStatModStrategy where T : struct
         {
-            public object Invoke(object val);
+            Func<T, T> func { get; set; }
+            public T Apply(T input) => func(input);
         }
         
-        public interface IStatModStrategy<T> : IStatModStrategy
-        {
-            public T Apply(T val);
-        }
-        
-        public abstract class StatModStrategy<T> : IStatModStrategy<T>
-        {
-            public abstract T Apply(T value);
-
-            // non-generic interface pass-through
-            public object Invoke(object value) => Apply((T)value);
-        }
-        
+        /// <summary>
+        /// Used for reflection to find the Stat to modify on the IStatUser
+        /// </summary>
+        /// <typeparam name="T1"></typeparam>
         [Serializable]
-        public struct SpeedModStrategy<T> : IStatModStrategy<T>
+        public struct SpeedModifier : IStatModStrategy<float>
         {
-            public Func<T, T> func;
-
-            public SpeedModStrategy(Func<T, T> func)
-            {
-                this.func = func;
-            }
-
-            public T Apply(T value) => func(value);
-            public object Invoke(object value) => Apply((T)value);
+            public Func<float, float> func { get; set; }
+            public SpeedModifier(Func<float, float> func) => this.func = func;
         }
+        
+        
     }
 
 }

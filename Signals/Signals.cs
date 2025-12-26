@@ -45,11 +45,10 @@ namespace EMILtools.Signals
         /// <typeparam name="T"></typeparam>
         [Serializable]
         [InlineProperty]
-        public sealed class Stat<T, TModStrat> : Ref<T>, IStat 
-            where T : IEquatable<T>
-            where TModStrat : IStatModStrategy
+        public sealed class Stat<T, TModStrategy> : Ref<T>, IStat 
+            where T : struct, IEquatable<T>
+            where TModStrategy : IStatModStrategy<T>
         {
-
             
             /// <summary>
             /// Used for INTERCEPTS when changed but before NOTIFY.
