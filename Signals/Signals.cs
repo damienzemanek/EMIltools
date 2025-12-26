@@ -18,7 +18,7 @@ namespace EMILtools.Signals
             /// Backing field for the base value, Specifically for the custom drawer
             /// </summary>
             [HorizontalGroup("Split", Width = 0.3f)]
-            [SerializeField, HideLabel] [VerticalGroup("Split/Left")] protected T _val;
+            [SerializeField, HideLabel] [VerticalGroup("Split/Right")] protected T _val;
             
             /// <summary>
             /// Overridable for Intercept and Notify on change
@@ -28,6 +28,7 @@ namespace EMILtools.Signals
             /// <summary>
             /// Public facing getter and setters for the actual value
             /// </summary>
+            [ShowInInspector]
             public virtual T Value { get => val; set => val = value;}
             public Ref(T initialValue) => val = initialValue;
         }
@@ -48,8 +49,7 @@ namespace EMILtools.Signals
             where T : IEquatable<T>
             where TModStrat : IStatModStrategy
         {
-            [VerticalGroup("Split/Left")] [SerializeField]
-            TModStrat strategy;
+
             
             /// <summary>
             /// Used for INTERCEPTS when changed but before NOTIFY.
@@ -81,7 +81,9 @@ namespace EMILtools.Signals
             /// Value is the pure value when there are no modifiers
             /// Value is the calculated value when there are modifiers
             /// </summary>
-            [ShowInInspector, ReadOnly]
+            [ShowInInspector, ReadOnly, HideLabel]
+            [VerticalGroup("Split/Left")]
+            [PropertyOrder(0)]
             public override T Value
             {
                 get => (HasModifiers && !blockIntercepts) ? calculated : val;
@@ -106,6 +108,7 @@ namespace EMILtools.Signals
             // Settings
             [VerticalGroup("Split/Right")]
             [LabelWidth(100)]
+            [PropertyOrder(1)]
             [SerializeField] private bool _blockIntercepts = false;
             public bool blockIntercepts
             {
@@ -119,6 +122,7 @@ namespace EMILtools.Signals
             }
             [VerticalGroup("Split/Right")]
             [LabelWidth(100)]
+            [PropertyOrder(2)]
             public bool notifyChanges = true;
             
             T Calculate()
