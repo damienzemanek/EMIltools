@@ -159,7 +159,7 @@ namespace EMILtools.Signals
             /// </summary>
             /// <param name="modifier"></param>
             /// <returns></returns>
-            public Stat<T, TModStrat> AddModifier(IStatModStrategy modifier)
+            public Stat<T, TModStrategy> AddModifier(IStatModStrategy modifier)
             {
                 Debug.Log("Adding Modifier: " + modifier);
                 if(Modifiers == null) _modifiers = new List<IStatModStrategy>();
@@ -177,7 +177,7 @@ namespace EMILtools.Signals
             /// </summary>
             /// <param name="modifier"></param>
             /// <returns></returns>
-            public Stat<T, TModStrat> RemoveModifier(IStatModStrategy modifier)
+            public Stat<T, TModStrategy> RemoveModifier(IStatModStrategy modifier)
             {
                 if (!_modifiers.Remove(modifier)) return this;
                 Calculate();
@@ -191,7 +191,7 @@ namespace EMILtools.Signals
             /// </summary>
             /// <param name="intercept"></param>
             /// <returns></returns>
-            public Stat<T, TModStrat> AddIntercept(Func<T, T> intercept)
+            public Stat<T, TModStrategy> AddIntercept(Func<T, T> intercept)
             {
                 if(Intercepts == null) _intercepts = new List<Func<T, T>>();
                 if (_intercepts.Contains(intercept)) return this;
@@ -201,7 +201,7 @@ namespace EMILtools.Signals
 
             }
             
-            public Stat<T, TModStrat> RemoveIntercept(Func<T, T> intercept)
+            public Stat<T, TModStrategy> RemoveIntercept(Func<T, T> intercept)
             {
                 _intercepts.Remove(intercept);
                 RefreshIntercept();
@@ -217,14 +217,14 @@ namespace EMILtools.Signals
             /// </summary>
             /// <param name="reaction"></param>
             /// <returns></returns>
-            public Stat<T, TModStrat> AddReaction(Action<T> reaction)
+            public Stat<T, TModStrategy> AddReaction(Action<T> reaction)
             {
                 if(Reactions == null) Reactions = reaction;
                 Reactions += reaction;
                 return this;
             }
 
-            public Stat<T, TModStrat> RemoveReaction(Action<T> reaction)
+            public Stat<T, TModStrategy> RemoveReaction(Action<T> reaction)
             {
                 Reactions -= reaction;
                 return this;
@@ -236,7 +236,7 @@ namespace EMILtools.Signals
             /// </summary>
             /// <param name="r"></param>
             /// <returns></returns>
-            public static implicit operator T(Stat<T, TModStrat> r) => (r != null) ? r.Value : default;
+            public static implicit operator T(Stat<T, TModStrategy> r) => (r != null) ? r.Value : default;
             
         }
     
