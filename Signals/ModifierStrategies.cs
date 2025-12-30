@@ -20,9 +20,9 @@ namespace EMILtools.Signals
         }
         
         /// <summary>
+        /// Simple struct wrapper for Func<T, T> to modify Health on IStatUser
         /// Used for reflection to find the Stat to modify on the IStatUser
         /// </summary>
-        /// <typeparam name="T1"></typeparam>
         [Serializable]
         public struct SpeedModifier : IStatModStrategy<float>
         {
