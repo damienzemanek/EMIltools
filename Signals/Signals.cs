@@ -4,15 +4,19 @@ using System.Reflection;
 using EMILtools.Core;
 using UnityEngine;
 using Sirenix.OdinInspector;
+using static EMILtools.Signals.ModiferRouting;
 using static EMILtools.Signals.ModifierStrategies;
 
 namespace EMILtools.Signals
 {
-        public interface IStatUser { }
+        public interface IStatUser
+        {
+            public ModifierRouter router { get; set; }
+        }
     
         [Serializable]
         [InlineProperty]
-        public class Ref<T> where T : IEquatable<T>
+        public class Ref<T> where T : struct
         {
             /// <summary>
             /// Backing field for the base value, Specifically for the custom drawer
@@ -30,7 +34,11 @@ namespace EMILtools.Signals
             /// </summary>
             [ShowInInspector]
             public virtual T Value { get => val; set => val = value;}
+            
+            public virtual ref T ValueRef => ref _val;
+            
             public Ref(T initialValue) => val = initialValue;
+            public Ref(ref T initialValue) => val = initialValue;
         }
 
         public interface IStat { }
@@ -45,10 +53,15 @@ namespace EMILtools.Signals
         /// <typeparam name="T"></typeparam>
         [Serializable]
         [InlineProperty]
-        public sealed class Stat<T, TModStrategy> : Ref<T>, IStat 
-            where T : struct, IEquatable<T>
-            where TModStrategy : IStatModStrategy<T>
+        public sealed class Stat<T, TMod> : Ref<T>, IStat 
+            where T : struct
+            where TMod : struct, IStatModStrategy<T>
         {
+            public struct ModifierSlot
+            {
+                public TMod modifier;
+                public IStatModCustom<T, TMod> decorator;
+            }
             
             /// <summary>
             /// Used for INTERCEPTS when changed but before NOTIFY.
@@ -90,11 +103,11 @@ namespace EMILtools.Signals
             }
 
             // Not initialized here to save on memory, When using lazy initialize
-            private List<IStatModStrategy> _modifiers;
+            private List<ModifierSlot> _modifiers;
             private List<Func<T, T>> _intercepts;
             
             // Access for Configurations
-            public IReadOnlyList<IStatModStrategy> Modifiers => _modifiers;
+            public IReadOnlyList<ModifierSlot> Modifiers => _modifiers;
             public IReadOnlyList<Func<T, T>> Intercepts => _intercepts;
             public event Action<T> Reactions; //Kept as event so outside scripts can't invoke it directly
             
@@ -127,18 +140,9 @@ namespace EMILtools.Signals
             T Calculate()
             {
                 if (!HasModifiers) return val;
-                T beingModified = val;
-
-
-                for (int i = 0; i < _modifiers.Count; i++)
-                {
-                    var strat = _modifiers[i] as IStatModStrategy<T> ?? throw new InvalidOperationException();
-                    beingModified = strat.Apply(beingModified);
-
-                }
-                
-                Debug.Log("New calculated value: " + beingModified);
+                T beingModified = _modifiers.ApplyAll(val);
                 Debug.Log("Old calculated value: " + val);
+                Debug.Log("New calculated value: " + beingModified);
                 return calculated = beingModified;
             }
 
@@ -159,29 +163,33 @@ namespace EMILtools.Signals
             /// </summary>
             /// <param name="modifier"></param>
             /// <returns></returns>
-            public Stat<T, TModStrategy> AddModifier(IStatModStrategy modifier)
+            
+            // Struct
+            public void AddModifier(TMod modifier)
             {
                 Debug.Log("Adding Modifier: " + modifier);
-                if(Modifiers == null) _modifiers = new List<IStatModStrategy>();
-                if (_modifiers.Contains(modifier)) return this;
-                
+                if(Modifiers == null) _modifiers = new List<ModifierSlot>();
+                if (_modifiers.ContainsModifierType()) return;
                 _modifiers.Add(modifier);
                 Debug.Log($"Added Modifier : {modifier}. Total Modifiers now: {_modifiers.Count}");
+                Calculate();
+            }
+            
+            // Class
+            public void AddDecorator(IStatModCustom<T, TMod> decorator)
+            {
+                Debug.Log("Appending Decorator: " + decorator);
+                if (_modifiers.ContainsDecorator(decorator)) return;
+                _modifiers.Add(decorator);
+                Debug.Log($"Added Decorator : {decorator}. Total Modifiers now: {_modifiers.Count}");
 
                 Calculate();
-                return this;
             }
 
-            /// <summary>
-            /// Order of modifiers removed matters
-            /// </summary>
-            /// <param name="modifier"></param>
-            /// <returns></returns>
-            public Stat<T, TModStrategy> RemoveModifier(IStatModStrategy modifier)
+            public void RemoveModifier(TMod modifier)
             {
-                if (!_modifiers.Remove(modifier)) return this;
+                if (!_modifiers.Remove(modifier)) return;
                 Calculate();
-                return this;
             }
 
             /// <summary>
@@ -191,7 +199,7 @@ namespace EMILtools.Signals
             /// </summary>
             /// <param name="intercept"></param>
             /// <returns></returns>
-            public Stat<T, TModStrategy> AddIntercept(Func<T, T> intercept)
+            public Stat<T, TMod> AddIntercept(Func<T, T> intercept)
             {
                 if(Intercepts == null) _intercepts = new List<Func<T, T>>();
                 if (_intercepts.Contains(intercept)) return this;
@@ -201,7 +209,7 @@ namespace EMILtools.Signals
 
             }
             
-            public Stat<T, TModStrategy> RemoveIntercept(Func<T, T> intercept)
+            public Stat<T, TMod> RemoveIntercept(Func<T, T> intercept)
             {
                 _intercepts.Remove(intercept);
                 RefreshIntercept();
@@ -217,14 +225,14 @@ namespace EMILtools.Signals
             /// </summary>
             /// <param name="reaction"></param>
             /// <returns></returns>
-            public Stat<T, TModStrategy> AddReaction(Action<T> reaction)
+            public Stat<T, TMod> AddReaction(Action<T> reaction)
             {
                 if(Reactions == null) Reactions = reaction;
                 Reactions += reaction;
                 return this;
             }
 
-            public Stat<T, TModStrategy> RemoveReaction(Action<T> reaction)
+            public Stat<T, TMod> RemoveReaction(Action<T> reaction)
             {
                 Reactions -= reaction;
                 return this;
@@ -236,7 +244,7 @@ namespace EMILtools.Signals
             /// </summary>
             /// <param name="r"></param>
             /// <returns></returns>
-            public static implicit operator T(Stat<T, TModStrategy> r) => (r != null) ? r.Value : default;
+            public static implicit operator T(Stat<T, TMod> r) => (r != null) ? r.Value : default;
             
         }
     

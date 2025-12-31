@@ -1,19 +1,12 @@
 using System;
+using EMILtools.Timers;
 using UnityEngine;
 
 namespace EMILtools.Signals
 {
     public static class ModifierStrategies
     {
-        /// <summary>
-        /// Used for storage of different strategy types in a single collection
-        /// </summary>
-        public interface IStatModStrategy { }
-        
-        /// <summary>
-        /// Used for invoke chaining
-        /// </summary>
-        public interface IStatModStrategy<T> : IStatModStrategy where T : struct
+        public interface IStatModStrategy<T> where T : struct
         {
             Func<T, T> func { get; set; }
             public T Apply(T input) => func(input);
@@ -27,7 +20,11 @@ namespace EMILtools.Signals
         public struct SpeedModifier : IStatModStrategy<float>
         {
             public Func<float, float> func { get; set; }
-            public SpeedModifier(Func<float, float> func) => this.func = func;
+
+            public SpeedModifier(Func<float, float> func)
+            {
+                this.func = func;
+            }
         }
         
         
