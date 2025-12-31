@@ -137,6 +137,33 @@ namespace EMILtools.Extensions
             else list.Add(item);
             return list;
         }
+        
+        public static T AddGet<T>(this List<T> list, T item)
+        {
+            if (item == null) throw new InvalidOperationException("Trying to add null item to list");
+    
+            if (list.Contains(item))  return list[list.IndexOf(item)];
+    
+            list.Add(item);
+            return item;
+        }
+        
+        public static T ReplaceItemAtItsSpotWith<T>(this List<T> list, T item, T replacement)
+        {
+            if (item == null) throw new InvalidOperationException("Trying to find a null item to replace");
+
+            int index = list.IndexOf(item);
+    
+            if (index != -1)
+            {
+                list[index] = replacement;
+                return replacement;
+            }
+
+            // If item not found, add replacement to the end of the list
+            list.Add(replacement);
+            return replacement;
+        }
 
         public static bool IsEmpty<T>(this List<T> list) => list.Count == 0;
 

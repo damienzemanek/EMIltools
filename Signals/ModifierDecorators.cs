@@ -11,10 +11,11 @@ namespace EMILtools.Signals
         where T : struct
         where TMod : struct, IStatModStrategy<T>
     {
+        public bool removable { get; set; }
         public Type linkType => typeof(TMod);
-        public Ref<TMod> strat { get; set; }
+        public Func<T, T> func { get; set; }
         public Stat<T, TMod> stat { get; set; }
-        public T Apply(T input) => ApplyThruDecoratorFirst(strat.Value.func(input));
+        public T Apply(T input) => ApplyThruDecoratorFirst(func(input));
         public T ApplyThruDecoratorFirst(T input);
         public Action OnAdd { get; set; }
         public Action OnRemove{ get; set; }
@@ -24,16 +25,18 @@ namespace EMILtools.Signals
         where T : struct
         where TMod : struct, IStatModStrategy<T>
     {
-        public Ref<TMod> strat { get; set; }
+        public bool removable { get; set; }
         public Stat<T, TMod> stat { get; set; }
         public abstract T ApplyThruDecoratorFirst(T input);
-        public Func<T, T> func
-        {
-            get => (strat != null) ? strat.ValueRef.func : null;
-            set { if (strat != null) strat.ValueRef.func = value; }
-        }
+        public Func<T, T> func { get; set; }
         public Action OnAdd { get; set; } = delegate { };
         public Action OnRemove { get; set; } = delegate { };
+
+        public ModifierDecorator(Func<T, T> func)
+        {
+            removable = false;
+            this.func = func;
+        }
     }
     
     public class TimedModifier<T, TMod> : ModifierDecorator<T, TMod>, IStatModStrategy<T>
@@ -43,17 +46,22 @@ namespace EMILtools.Signals
         public CountdownTimer timer;
         public override T ApplyThruDecoratorFirst(T input) => input;
 
-        public TimedModifier(CountdownTimer timer, Action add = null, Action rm = null)
+        public TimedModifier(Func<T,T> func, CountdownTimer timer, Action add = null, Action rm = null) : base(func)
         {
+            removable = false;
             this.timer = timer;
             OnAdd += timer.Start;
-            timer.OnTimerStop.Add(RemoveModifier);
+            OnAdd += SetupTimerRemove;
             
             OnAdd += add;
             OnRemove += rm;
         }
 
-        void RemoveModifier() => stat.RemoveModifier(strat.Value);
+        void SetupTimerRemove() => timer.OnTimerStop.Add(() =>
+        {
+            removable = true;
+            stat.RemoveModifier(func);
+        });
 
     }
 }

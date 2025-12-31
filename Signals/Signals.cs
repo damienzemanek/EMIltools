@@ -61,6 +61,17 @@ namespace EMILtools.Signals
             {
                 public TMod modifier;
                 public IStatModCustom<T, TMod> decorator;
+
+                /// <summary>
+                /// Apply the decorator if it's there first
+                /// </summary>
+                /// <param name="val"></param>
+                /// <returns></returns>
+                public T Apply(T val)
+                {
+                    if(decorator != null) return decorator.Apply(val);
+                    else return modifier.Apply(val);
+                }
             }
             
             /// <summary>
@@ -170,7 +181,7 @@ namespace EMILtools.Signals
                 Debug.Log("Adding Modifier: " + modifier);
                 if(Modifiers == null) _modifiers = new List<ModifierSlot>();
                 if (_modifiers.ContainsModifierType()) return;
-                _modifiers.Add(modifier);
+                _modifiers.Add(ref modifier);
                 Debug.Log($"Added Modifier : {modifier}. Total Modifiers now: {_modifiers.Count}");
                 Calculate();
             }
@@ -186,9 +197,10 @@ namespace EMILtools.Signals
                 Calculate();
             }
 
-            public void RemoveModifier(TMod modifier)
+            public void RemoveModifier(Func<T, T> func)
             {
-                if (!_modifiers.Remove(modifier)) return;
+                Debug.Log("Removing Modifier with func: " + func);
+                if (!_modifiers.Remove(this, func)) return;
                 Calculate();
             }
 

@@ -15,8 +15,10 @@ namespace EMILtools.Signals
     {
         // Reference casting from Action<TMod> to object (basically free)
         // Since Action is a refernce, this doesn't box
-        public readonly Dictionary<Type, (object AddModifier, object AddDecorator)> MethodCache_AddModifier;
-        public ModifierRouter() => MethodCache_AddModifier = new Dictionary<Type, (object AddModifier, object AddDecorator)>();
+        public readonly Dictionary<Type, (object AddModifier,
+                                          object AddDecorator, 
+                                          object RemoveModifierSlot)> MethodCache_MutateModifiers;
+        public ModifierRouter() => MethodCache_MutateModifiers = new Dictionary<Type, (object AddModifier, object AddDecorator, object RemoveModifierSlot)>();
     }
     
     public static class ModiferRouting
@@ -33,22 +35,48 @@ namespace EMILtools.Signals
 
             // This uses the TMod of the strat we sent in, so we save it using typeof(TMod) (no alloc, no box)
 
-            if (!recipient.router.MethodCache_AddModifier.TryGetValue(modType, out var AddMethods))
+            if (!recipient.router.MethodCache_MutateModifiers.TryGetValue(modType, out var Methods))
             {
                 Debug.Log($"Failed to retreive, and add modifier {strat.GetType().Name}");
                 return;
             }
             
                 
-            if (AddMethods.AddModifier is not Action<TMod> AddModifier) return;
+            if (Methods.AddModifier is not Action<TMod> AddModifier) return;
             AddModifier(strat);
             Debug.Log($"Added modifier {modType}");
             
             if (decorators.Length == 0) return;
             if (decorators[0] is not IStatModCustom<T, TMod> customDecorator) return;
-            if (AddMethods.AddDecorator is not Action<IStatModCustom<T, TMod>> AddDecorator) return;
+            if (Methods.AddDecorator is not Action<IStatModCustom<T, TMod>> AddDecorator) return;
             Debug.Log($"Custom Modifier being handled... : {recipient}");
             AddDecorator(customDecorator);
+        }
+        
+        /// <summary>
+        ///             public void RemoveModifier(Func<T, T> func)
+        /// </summary>
+        /// <param name="recipient"></param>
+        /// <param name="strat"></param>
+        /// <typeparam name="T"></typeparam>
+        /// <typeparam name="TMod"></typeparam>
+        public static void RemoveModifier<T, TMod>(this IStatUser recipient, ref TMod strat)
+            where T : struct
+            where TMod : struct, IStatModStrategy<T>
+        {
+            Type modType = typeof(TMod);
+
+            // This uses the TMod of the strat we sent in, so we save it using typeof(TMod) (no alloc, no box)
+
+            if (!recipient.router.MethodCache_MutateModifiers.TryGetValue(modType, out var Methods))
+            {
+                Debug.Log($"Failed to retreive, and remove modifier {strat.GetType().Name}");
+                return;
+            }
+            
+            if (Methods.RemoveModifierSlot is not Action<Func<T,T>> RemoveModifier) return;
+            RemoveModifier(strat.func);
+            Debug.Log($"Removed modifier {modType}");
         }
         
 
@@ -75,16 +103,17 @@ namespace EMILtools.Signals
                 var valueType = genericArgs[0];
                 var stratType = genericArgs[1];
                 var decoratorType = typeof(IStatModCustom<,>).MakeGenericType(valueType, stratType);
+                var removeParamType = typeof(Func<,>).MakeGenericType(valueType, valueType);
                 
                 // Extract required methods
                 var instance = field.GetValue(istatuser);
                 var addModifierMethod = field.FieldType.GetMethod("AddModifier");
-                var addDecoratorMethod = field.FieldType.GetMethod(
-                    "AddDecorator",
-                    new[] { decoratorType }
-                );
+                var addDecoratorMethod = field.FieldType.GetMethod("AddDecorator",
+                    new[] { decoratorType } );
+                var addRemoveMethod = field.FieldType.GetMethod("RemoveModifier",
+                    new [] { removeParamType} );
 
-                if (instance == null || addModifierMethod == null || addDecoratorMethod == null) {
+                if (instance == null || addModifierMethod == null || addDecoratorMethod == null || removeParamType == null) {
                     Debug.LogWarning($"[CacheStatFields] Skipping field {field.Name}: Instance or AddModifier method not found."); continue; }
                 
                 Debug.Log($"[CacheStatFields] Processing field '{field.Name}' -> ValueType: {valueType.Name}, StratType: {stratType.Name}");
@@ -103,12 +132,17 @@ namespace EMILtools.Signals
                         instance,
                         addDecoratorMethod
                     );
+                    var AddRmCb = Delegate.CreateDelegate(
+                        typeof(Action<>).MakeGenericType(removeParamType),
+                        instance,
+                        addRemoveMethod
+                    );
 
                     // Update the Instance-specific Router (Multi-entity safety)
-                    if (istatuser.router.MethodCache_AddModifier != null)
+                    if (istatuser.router.MethodCache_MutateModifiers != null)
                     {
                         // We use the stratType (e.g. SpeedModifier) as the key
-                        istatuser.router.MethodCache_AddModifier[stratType] = (addModCb, addDecCb);
+                        istatuser.router.MethodCache_MutateModifiers[stratType] = (addModCb, addDecCb, AddRmCb);
                         Debug.Log($"[CacheStatFields] Added {stratType.Name} callback to {istatuser.GetType().Name}.router.MethodCache");
                     }
                     else

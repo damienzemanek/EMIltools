@@ -30,6 +30,23 @@ public class StatsSystemTests : MonoBehaviour
         user.ModifyStatUser<float, SpeedModifier>(ref strat);
         Assert.AreEqual(20f, user.speed.Value, "The state value should be doubled by the modifier");
     }
+    
+    [Test]
+    public void ModifyStatUser_ApplyAndRemoveModifier()
+    {
+        var user = new TestStatUser();
+        user.CacheStatFields();
+        var strat1 = new SpeedModifier(x => x * 2);
+
+        user.ModifyStatUser(ref strat1);
+        
+        Assert.AreEqual(20f, user.speed.Value, "Initial Modifier Added, should be double");
+
+        
+        user.RemoveModifier(ref strat1);
+        
+        Assert.AreEqual(10f, user.speed.Value, "Initial Modifier Removed, should be back to initial value");
+    }
 
     [Test]
     public void ModifyStatUser_ApplyMultipleModifiers()
@@ -44,6 +61,8 @@ public class StatsSystemTests : MonoBehaviour
         
         Assert.AreEqual(30f, user.speed.Value, "Multiple modifiers should stack in order");
     }
+    
+    
     
     
     [Test]
