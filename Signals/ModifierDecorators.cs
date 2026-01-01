@@ -55,20 +55,19 @@ namespace EMILtools.Signals
             removable = false;
             this.timer = timer;
             this.InitializeTimers((timer, false));
+            this.timer.OnTimerStop.Add(() =>
+            {
+                removable = true;
+                stat.RemoveModifier(hash);
+            });
             
             OnAdd += timer.Start;
-            OnAdd += SetupTimerRemove;
             OnAdd += add;
 
             OnRemove += this.ShutdownTimers;
             OnRemove += rm;
         }
-
-        void SetupTimerRemove() => timer.OnTimerStop.Add(() =>
-        {
-            removable = true;
-            stat.RemoveModifier(hash);
-        });
+        
 
         public void ForceStop(Stat<T,TMod> stat)
         {
