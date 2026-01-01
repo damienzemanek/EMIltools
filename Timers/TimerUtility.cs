@@ -10,6 +10,8 @@ namespace EMILtools.Timers
 {
         public static class TimerUtility
         {
+            public static bool GlobalTickerInitialized = false;
+            
             [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.BeforeSceneLoad)]
             public static void InitializeGlobalTicker()
             {
@@ -17,6 +19,7 @@ namespace EMILtools.Timers
                 GlobalTicker ticker = new GameObject("GlobalTicker").AddComponent<GlobalTicker>();
                 Object.DontDestroyOnLoad(ticker.gameObject);
                 ticker.gameObject.hideFlags = HideFlags.DontSave;
+                GlobalTickerInitialized = true;
             }
         
             public class GlobalTicker : MonoBehaviour

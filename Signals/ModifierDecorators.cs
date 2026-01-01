@@ -17,7 +17,7 @@ namespace EMILtools.Signals
         public ulong hash { get; set; }
         public Func<T, T> func { get; set; }
         public Stat<T, TMod> stat { get; set; }
-        public T Apply(T input) => ApplyThruDecoratorFirst(func(input));
+        public T Apply(T input) => ApplyThruDecoratorFirst(input);
         public T ApplyThruDecoratorFirst(T input);
         public Action OnAdd { get; set; }
         public Action OnRemove{ get; set; }
@@ -58,16 +58,24 @@ namespace EMILtools.Signals
             
             OnAdd += timer.Start;
             OnAdd += SetupTimerRemove;
-            
             OnAdd += add;
+
+            OnRemove += this.ShutdownTimers;
             OnRemove += rm;
         }
 
         void SetupTimerRemove() => timer.OnTimerStop.Add(() =>
         {
             removable = true;
-            stat.RemoveDecorator(hash, this);
+            stat.RemoveModifier(hash);
         });
+
+        public void ForceStop(Stat<T,TMod> stat)
+        {
+            removable = true;
+            this.stat = stat;
+            timer.OnTimerStop?.Invoke();
+        }
 
     }
 }

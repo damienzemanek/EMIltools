@@ -10,22 +10,8 @@ namespace EMILtools.Signals
 { 
     public static class ModifierExtensions
     {
-        
-        // Contains modifier type
-        public static bool ContainsModifierType<T, TMod>(
-            this List<Stat<T, TMod>.ModifierSlot> slots)
-            where T : struct
-            where TMod : struct, IStatModStrategy<T>
-        {
-            // foreach (var slot in slots)
-            //     if (slot.modifier.GetType() == typeof(TMod))
-            //         return true;
-
-            return false;
-        }
-        
             
-        public static bool Remove<T, TMod>(this List<Stat<T, TMod>.ModifierSlot> modslots, Stat<T, TMod> stat, ulong hash)
+        public static bool RemoveModifier<T, TMod>(this List<Stat<T, TMod>.ModifierSlot> modslots, ulong hash)
             where T : struct
             where TMod : struct, IStatModStrategy<T>
         {
@@ -51,19 +37,7 @@ namespace EMILtools.Signals
                     Debug.Log("Slot has decorators (continuing...)");
 
                     foreach (var dec in modslots[i].decorators)
-                    {
-                        // Edge Case Fix:
-                        // Multiple of the same Modifier (Speed Modifier)
-                        // Multiple of the Same Func (x => x * 2)
-                        // One will be removable
-                        if (dec.removable == false) continue;
-                        Debug.Log("dec is removable (continuing...)");
-
-
-                        // Required: Setting stat here so OnRemove cb's can have access to Stat for removal operations
-                        dec.stat = stat;
                         dec?.OnRemove?.Invoke();
-                    }
                 }
                 modslots.RemoveAt(i);
                 return true;
@@ -98,7 +72,10 @@ namespace EMILtools.Signals
             return modslots;
         }
         
-        public static List<Stat<T, TMod>.ModifierSlot> Add<T, TMod>(this List<Stat<T,TMod>.ModifierSlot> modslots, List<IStatModCustom<T, TMod>> decorators)
+        public static List<Stat<T, TMod>.ModifierSlot> AddDecorator<T, TMod>(this List<Stat<T,TMod>.ModifierSlot> modslots,
+            List<IStatModCustom<T, TMod>> decorators,
+            Stat<T, TMod> stat
+        )
             where T : struct
             where TMod : struct, IStatModStrategy<T>
         {
@@ -108,6 +85,9 @@ namespace EMILtools.Signals
                 {
                     // ? Is this already typed for this? Do i need this check at all
                     if (modslots[i].modifier.GetType() != dec.linkType) continue; // No Match
+                    
+                    dec.stat = stat;
+                    
                     if (modslots[i].decorators == null)
                     {
                         // Still ned to struct quick copy on the first dec tho

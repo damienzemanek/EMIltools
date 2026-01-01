@@ -19,22 +19,20 @@ public class StatsSystemTests : MonoBehaviour
     }
 
     [Test]
-    public void ModifyStatUser_ApplyModifier()
+    public void Modify_Once()
     {
         var user = new TestStatUser();
         user.CacheStatFields();
         
-        
         var strat = new SpeedModifier(x => x * 2);
 
-        // trailing comma here works because generic constraint is inferred from param insert,
-        // although T is never inferr-able. so it mest be set explicitly
+        // Explicitly specifying T is required so the router can bind the correct stat
         user.ModifyStatUser<float, SpeedModifier>(ref strat);
-        Assert.AreEqual(20f, user.speed.Value, "The state value should be doubled by the modifier");
+        Assert.AreEqual(20f, user.speed.Value, "The stat value should be doubled by the modifier");
     }
     
     [Test]
-    public void ModifyStatUser_ApplyAndRemoveModifier()
+    public void Modify_Once_AndRemove_Once()
     {
         var user = new TestStatUser();
         user.CacheStatFields();
@@ -42,16 +40,16 @@ public class StatsSystemTests : MonoBehaviour
 
         user.ModifyStatUser(ref strat1);
         
-        Assert.AreEqual(20f, user.speed.Value, "Initial Modifier Added, should be double");
+        Assert.AreEqual(20f, user.speed.Value, "Initial modifier added, stat should be doubled");
 
-        
+        // Removing the same modifier by its hash should restore base value
         user.RemoveModifier(ref strat1);
         
-        Assert.AreEqual(10f, user.speed.Value, "Initial Modifier Removed, should be back to initial value");
+        Assert.AreEqual(10f, user.speed.Value, "After removing the modifier, stat should return to base value");
     }
 
     [Test]
-    public void ModifyStatUser_ApplyMultipleModifiers()
+    public void Modify_Twice_TheSameModifiers_DifferentFuncs_InSeries()
     {
         var user = new TestStatUser();
         user.CacheStatFields();
@@ -61,14 +59,50 @@ public class StatsSystemTests : MonoBehaviour
         user.ModifyStatUser(ref strat1);
         user.ModifyStatUser(ref strat2);
         
-        Assert.AreEqual(30f, user.speed.Value, "Multiple modifiers should stack in order");
+        // (10 + 5) * 2 = 30
+        Assert.AreEqual(30f, user.speed.Value, "Multiple modifiers should apply in the order they are added");
+    }
+    
+    [Test]
+    public void Modify_Twice_TheSameModifier_DifferentFuncs_InSeries_RemoveOneModifier()
+    {
+        var user = new TestStatUser();
+        user.CacheStatFields();
+
+        var doubleMod = new SpeedModifier(x => x * 2);
+        var addMod = new SpeedModifier(x => x + 100);
+
+        user.ModifyStatUser(ref doubleMod);
+        user.ModifyStatUser(ref addMod);
+
+        // (10 * 2) + 100 = 120
+        Assert.AreEqual(120f, user.speed.Value, "(10 * 2) + 100 = 120");
+
+        // Remove only the 'double' modifier by its hash
+        user.RemoveModifier(ref doubleMod);
+
+        // 10 + 100 = 110
+        Assert.AreEqual(110f, user.speed.Value, "After removing the doubler, only the +100 modifier should remain");
+    }
+
+    
+    [Test]
+    public void Modify_Twice_TheSame_InSeries()
+    {
+        var user = new TestStatUser();
+        user.CacheStatFields();
+        var strat1 = new SpeedModifier(x => x + 5);
+
+        user.ModifyStatUser(ref strat1);
+        user.ModifyStatUser(ref strat1);
+        
+        // (10 + 5) + 5 = 20
+        Assert.AreEqual(20f, user.speed.Value, "Adding the same +5 modifier twice should increase the stat by 10 total");
     }
     
     
-    
-    
     [Test]
-    public void ModifyStatUser_ApplyModifier_Timed()
+    public void ApplyModifier_Timed()
     {
         var user = new TestStatUser();
         user.CacheStatFields();
@@ -80,38 +114,36 @@ public class StatsSystemTests : MonoBehaviour
         var tm = (TimedModifier<float, SpeedModifier>)timed;
         CountdownTimer timer = tm.timer;
         
-        
-        Assert.AreEqual(20f, user.speed.Value, "The state value should be doubled by the IStatModStrategy interface modifier");
-        Assert.AreEqual(true, timer.isRunning, "Timer on stat should be running");
+        // While the timed decorator is active, the underlying modifier is applied
+        Assert.AreEqual(20f, user.speed.Value, "The stat value should be doubled while the timed modifier is active");
+        Assert.AreEqual(true, timer.isRunning, "The timer associated with the timed modifier should be running");
     }
     
     [Test]
-    public void ModifyStatUser_StackingMultipleDecorators()
+    public void Modify_Once_WithTwoDecors_IsRunning()
     {
         var user = new TestStatUser();
         user.CacheStatFields();
 
         var strat = new SpeedModifier(x => x + 10);
-        // Stacking two different decorators on the same modifier
+        // Two separate timed decorators controlling the same underlying modifier's lifecycle
         var timed1 = strat.WithTimed(5);
         var timed2 = strat.WithTimed(10);
         
-        // Applying both decorators to the same modifier instance
+        // Both decorators attach to the same modifier, but the modifier's math itself is applied once
         user.ModifyStatUser(ref strat, timed1, timed2);
 
-        // Since it's x + 10, if both apply, it should be 10 + 10 + 10 = 30
-        // (Wait, ApplyDecorators chain: val = dec1.Apply(val) -> dec2.Apply(val))
-        // dec1.Apply calls strat.func(val) -> 10 + 10 = 20
-        // dec2.Apply calls strat.func(20) -> 20 + 10 = 30
-        Assert.AreEqual(30f, user.speed.Value, "Both decorators should apply their logic in sequence");
-        
+        // Only the SpeedModifier (+10) changes the math; decorators manage timing/callbacks only
+        // 10 (base) + 10 (modifier) = 20
+        Assert.AreEqual(20f, user.speed.Value, "The underlying modifier applies its +10 once; decorators do not change the math");
+
         var tm1 = (TimedModifier<float, SpeedModifier>)timed1;
         var tm2 = (TimedModifier<float, SpeedModifier>)timed2;
-        Assert.IsTrue(tm1.timer.isRunning && tm2.timer.isRunning, "Both timers should be running");
+        Assert.IsTrue(tm1.timer.isRunning && tm2.timer.isRunning, "Both timers for both decorators should be running");
     }
 
     [UnityTest]
-    public IEnumerator ModifyStatUser_TimedRemoval_TargetedInstance()
+    public IEnumerator Modify_Once_WithTwoDecors_Concurrently_StopTimerImmedietely()
     {
         yield return null;
         print("[TEST] Starting test");
@@ -119,51 +151,31 @@ public class StatsSystemTests : MonoBehaviour
         user.CacheStatFields();
 
         var strat = new SpeedModifier(x => x * 2);
-        var timedShort = strat.WithTimed(0.1f); // Expires quickly
-        var timedLong = strat.WithTimed(100f);  // Lasts long
+        var timedShort = strat.WithTimed(0.1f); // short-lived decorator
+        var timedLong = strat.WithTimed(100f);  // long-lived decorator
         user.ModifyStatUser(ref strat, timedShort, timedLong);
         
-        print($"Speed {user.speed.Value}," +
-              $" timer is running {(timedShort as TimedModifier<float, SpeedModifier>).timer.isRunning}" + $" timer length: {(timedShort as TimedModifier<float, SpeedModifier>).timer.Duration}");
-        Assert.AreEqual(40f, user.speed.Value, "Doubled x2, val is 40");
+        print($"(Speed {user.speed.Value})," +
+              $" (timer isRunning {(timedShort as TimedModifier<float, SpeedModifier>).timer.isRunning})" + 
+              $" (Duration: {(timedShort as TimedModifier<float, SpeedModifier>).timer.Duration})");
 
-         // // Manually trigger the short timer stop (simulating expiration)
-         (timedShort as TimedModifier<float, SpeedModifier>).removable = true;
-         (timedShort as TimedModifier<float, SpeedModifier>).stat = user.speed;
-         (timedShort as TimedModifier<float, SpeedModifier>).timer.OnTimerStop?.Invoke();
-         print($"Speed {user.speed.Value}," +
-               $" timer is running {(timedShort as TimedModifier<float, SpeedModifier>).timer.isRunning}" + $" timer length: {(timedShort as TimedModifier<float, SpeedModifier>).timer.Duration}");
+        // While any timed decorator keeps the modifier alive, stat is doubled once: 10 * 2 = 20
+        Assert.AreEqual(20f, user.speed.Value, "Initially, the stat is doubled once by the modifier");
 
-         print($"Speed {user.speed.Value}," +
-               $" timer is running {(timedShort as TimedModifier<float, SpeedModifier>).timer.isRunning}" + $" timer length: {(timedShort as TimedModifier<float, SpeedModifier>).timer.Duration}");
+        // Force-stopping the short decorator triggers removal of the entire modifier slot (modifier + all decorators)
+        (timedShort as TimedModifier<float, SpeedModifier>).ForceStop(user.speed);
+         
+        print($"(Speed {user.speed.Value})," +
+              $" (timer isRunning {(timedShort as TimedModifier<float, SpeedModifier>).timer.isRunning})" + 
+              $" (Duration: {(timedShort as TimedModifier<float, SpeedModifier>).timer.Duration})");
 
-        // After tmShort is removed, only tmLong remains
-        // Base 10 * 2 = 20
-        Assert.AreEqual(20f, user.speed.Value, "Only the expired modifier should be removed; the other should persist");
+        // After the forced stop, the whole modifier is gone and we revert to base value
+        Assert.AreEqual(10f, user.speed.Value, "Force-stopping the timed decorator should remove the entire modifier and revert to base value");
     }
 
-    [Test]
-    public void ModifyStatUser_NakedModifierTargeting()
-    {
-        var user = new TestStatUser();
-        user.CacheStatFields();
-
-        var doubleMod = new SpeedModifier(x => x * 2);
-        var addMod = new SpeedModifier(x => x + 100);
-
-        user.ModifyStatUser(ref doubleMod);
-        user.ModifyStatUser(ref addMod);
-
-        Assert.AreEqual(120f, user.speed.Value, "(10 * 2) + 100 = 120");
-
-        // Remove the 'double' modifier specifically by its func
-        user.RemoveModifier(ref doubleMod);
-
-        Assert.AreEqual(110f, user.speed.Value, "Should be 10 + 100 = 110 after removing the doubler");
-    }
 
     [Test]
-    public void ModifyStatUser_DecoratorOnAddOrder()
+    public void Modify_Once_WithOneDecorTimer_OnAddCalled()
     {
         var user = new TestStatUser();
         user.CacheStatFields();
@@ -178,9 +190,175 @@ public class StatsSystemTests : MonoBehaviour
 
         user.ModifyStatUser(ref strat, customDec);
 
-        Assert.IsTrue(onAddCalled, "The OnAdd callback should be triggered when the decorator is linked");
-        Assert.AreEqual(15f, user.speed.Value, "Stat should be updated immediately upon adding decorator");
+        Assert.IsTrue(onAddCalled, "The OnAdd callback on the decorator should be triggered when it is attached");
+        Assert.AreEqual(15f, user.speed.Value, "Immediately after applying the +5 modifier, the stat should be 15");
     }
     
+    
+    // Other tests
+    
+    [Test]
+    public void RemoveDecorator_ByHash_RemovesOnlyThatDecorator()
+    {
+        var user = new TestStatUser();
+        user.CacheStatFields();
+
+        var strat = new SpeedModifier(x => x + 10);
+        var timedShort = strat.WithTimed(5f);
+        var timedLong  = strat.WithTimed(5f);
+
+        user.ModifyStatUser(ref strat, timedShort, timedLong);
+
+        // Underlying modifier applies once: 10 + 10 = 20
+        Assert.AreEqual(20f, user.speed.Value, "Initial value should reflect a single +10 modifier with two attached decorators");
+
+        var tmShort = (TimedModifier<float, SpeedModifier>)timedShort;
+
+        // Explicit decorator removal by hash only runs its OnRemove callbacks; 
+        // it does NOT drive timer expiry or remove the underlying modifier.
+        user.speed.RemoveDecorator(strat.hash, timedShort);
+
+        // The math is still unchanged: modifier is still present, so value stays 20
+        Assert.AreEqual(20f, user.speed.Value, 
+            "Removing a decorator directly only triggers its callbacks; it does not change the underlying modifier's effect");
+
+        // Slot still exists and still has one decorator attached
+        Assert.AreEqual(1, user.speed.Modifiers.Count, "The modifier slot should still exist");
+        Assert.AreEqual(1, user.speed.Modifiers[0].decorators.Count, "Exactly one decorator should remain on the slot");
+    }
+
+    [Test]
+    public void RemoveModifier_RemovesEntireSlot_EvenWithDecorators()
+    {
+        var user = new TestStatUser();
+        user.CacheStatFields();
+
+        var strat = new SpeedModifier(x => x * 2);
+        var timed1 = strat.WithTimed(100f);
+        var timed2 = strat.WithTimed(100f);
+
+        user.ModifyStatUser(ref strat, timed1, timed2);
+
+        // At this point the modifier is active and has decorators; stat must differ from base
+        Assert.AreNotEqual(10f, user.speed.Value, "Modifiers should have changed the stat value from its base");
+
+        // Removing the base modifier by hash clears the entire slot (modifier + decorators)
+        user.RemoveModifier(ref strat);
+
+        Assert.AreEqual(10f, user.speed.Value, "Removing the base modifier should revert the stat to its base value");
+        Assert.IsTrue(user.speed.Modifiers == null || user.speed.Modifiers.Count == 0,
+            "All modifier slots should be removed when the base modifier is removed");
+    }
+    
+    [Test]
+    public void RemoveModifier_NonExistingHash_NoChange()
+    {
+        var user = new TestStatUser();
+        user.CacheStatFields();
+
+        var strat = new SpeedModifier(x => x * 2);
+        user.ModifyStatUser(ref strat);
+
+        Assert.AreEqual(20f, user.speed.Value, "Base modifier applied should double the stat");
+
+        // Different func → different hash. Attempting to remove using this one should do nothing.
+        var fake = new SpeedModifier(x => x + 999);
+
+        user.RemoveModifier(ref fake);
+
+        // Stat remains unchanged
+        Assert.AreEqual(20f, user.speed.Value,
+            "Removing a modifier using a non-matching hash should not change the stat");
+    }
+
+    
+    [Test]
+    public void TimedDecorators_SameHash_ForceStop_RemovesEntireModifier()
+    {
+        var user = new TestStatUser();
+        user.CacheStatFields();
+
+        var strat = new SpeedModifier(x => x + 5);
+        var timed1 = strat.WithTimed(100f);
+        var timed2 = strat.WithTimed(100f);
+
+        user.ModifyStatUser(ref strat, timed1, timed2);
+
+        // Underlying modifier applies once: 10 + 5 = 15
+        Assert.AreEqual(15f, user.speed.Value, "Initial value should be base +5 from the modifier");
+
+        var tm1 = (TimedModifier<float, SpeedModifier>)timed1;
+
+        // Force-stopping any one of the timed decorators should cause the entire modifier slot to be removed
+        tm1.ForceStop(user.speed);
+
+        // With the entire modifier slot removed, stat returns to base value
+        Assert.AreEqual(10f, user.speed.Value, "Force-stopping a timed decorator with this hash removes the whole modifier");
+
+        Assert.AreEqual(0, user.speed.Modifiers.Count, "The modifier slot should be completely removed");
+    }
+
+    [UnityTest]
+    public IEnumerator TimedDecorator_AutoExpire_RemovesEntireModifier()
+    {
+        var user = new TestStatUser();
+        user.CacheStatFields();
+
+        var strat = new SpeedModifier(x => x * 2);
+        var timed = strat.WithTimed(0.05f);
+        user.ModifyStatUser(ref strat, timed);
+
+        Assert.AreEqual(20f, user.speed.Value, "Base + timed modifier applied initially should double the stat");
+
+        var tm = (TimedModifier<float, SpeedModifier>)timed;
+        var timer = tm.timer;
+
+        float simulated = 0f;
+        // Manually drive the timer system instead of relying on a scene-driven GlobalTicker
+        while (timer.isRunning && simulated < 1f)
+        {
+            TimerUtility.TickAllUpdates(0.02f); // advance all update timers by 0.02s
+            simulated += 0.02f;
+            yield return null;                   // yield to the test runner for a frame
+        }
+
+        // After the timer expires, the TimedModifier's stop callback should have removed the entire modifier
+        Assert.AreEqual(10f, user.speed.Value,
+            "Timed expiry should remove the entire modifier slot, returning the stat to its base value");
+    }
+
+    [UnityTest]
+    public IEnumerator TimedModifier_Expires_DoesNotRemoveOtherModifiers()
+    {
+        var user = new TestStatUser();
+        user.CacheStatFields();
+
+        var timedMod  = new SpeedModifier(x => x * 2);     // temporary buff
+        var staticMod = new SpeedModifier(x => x + 5);     // permanent buff
+
+        var timed = timedMod.WithTimed(0.05f);
+
+        user.ModifyStatUser(ref timedMod, timed);
+        user.ModifyStatUser(ref staticMod);
+
+        // While the timed modifier is active: (10 * 2) + 5 = 25
+        Assert.AreEqual(25f, user.speed.Value, "Timed modifier and permanent modifier should both be active initially");
+
+        var tm    = (TimedModifier<float, SpeedModifier>)timed;
+        var timer = tm.timer;
+
+        // Manually tick the global timer system until this specific timer expires
+        float simulated = 0f;
+        while (timer.isRunning && simulated < 1f)
+        {
+            TimerUtility.TickAllUpdates(0.02f); // advances all update timers
+            simulated += 0.02f;
+            yield return null;                  // let the test runner advance a frame
+        }
+
+        // Once the timed modifier expires, only the permanent +5 modifier should remain: 10 + 5 = 15
+        Assert.AreEqual(15f, user.speed.Value, "Expiring the timed modifier should leave other modifiers intact");
+    }
+
     
 }

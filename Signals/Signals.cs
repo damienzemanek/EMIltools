@@ -70,8 +70,10 @@ namespace EMILtools.Signals
                 /// <returns></returns>
                 public T Apply(T val)
                 {
-                    if (hasDecorators) return decorators.ApplyDecorators(val);
-                    else return modifier.Apply(val);
+                    if (hasDecorators)
+                        return modifier.Apply(decorators.ApplyDecorators(val));
+                    else
+                        return modifier.Apply(val);
                 }
                 
                 public bool RemoveDecorator(IStatModCustom<T, TMod> deco, Stat<T, TMod> stat)
@@ -84,7 +86,7 @@ namespace EMILtools.Signals
                         deco.OnRemove?.Invoke();
                     }
 
-                    return decorators.Remove(deco);
+                    return removed;
                 }
             }
             
@@ -194,9 +196,20 @@ namespace EMILtools.Signals
             {
                 Debug.Log("Adding Modifier: " + modifier);
                 if(Modifiers == null) _modifiers = new List<ModifierSlot>();
-                if (_modifiers.ContainsModifierType()) return;
                 _modifiers.Add(ref modifier);
                 Debug.Log($"Added Modifier : {modifier}. Total Modifiers now: {_modifiers.Count}");
+                Calculate();
+            }
+            
+            public void RemoveModifier(ulong hash)
+            {
+                Debug.Log("Removing Modifier with hash: " + hash);
+                if (!_modifiers.RemoveModifier(hash))
+                {
+                    Debug.Log("Removal failed. Could not find modifier with that func");
+                    return;
+                }
+                Debug.Log("Modifier & Modifier Slot Removal Success.");
                 Calculate();
             }
             
@@ -204,21 +217,9 @@ namespace EMILtools.Signals
             public void AddDecorators(List<IStatModCustom<T, TMod>> decorators)
             {
                 Debug.Log("Appending Decorators: " + decorators.Count);
-                _modifiers.Add(decorators);
+                _modifiers.AddDecorator(decorators, this);
                 Debug.Log($"Added Decorators : {decorators.Count}. Total Modifiers now: {_modifiers.Count}");
 
-                Calculate();
-            }
-
-            public void RemoveModifier(ulong hash)
-            {
-                Debug.Log("Removing Modifier with hash: " + hash);
-                if (!_modifiers.Remove(this, hash))
-                {
-                    Debug.Log("Removal failed. Could not find modifier with that func");
-                    return;
-                }
-                Debug.Log("Modifier & Modifier Slot Removal Success.");
                 Calculate();
             }
             
