@@ -1,4 +1,5 @@
 using System;
+using System.Linq.Expressions;
 using EMILtools.Timers;
 using UnityEngine;
 
@@ -8,7 +9,9 @@ namespace EMILtools.Signals
     {
         public interface IStatModStrategy<T> where T : struct
         {
-            Func<T, T> func { get; set; }
+            public ulong hash { get; set; }
+            public Func<T, T> func { get; set; }
+
             public T Apply(T input) => func(input);
         }
         
@@ -19,11 +22,13 @@ namespace EMILtools.Signals
         [Serializable]
         public struct SpeedModifier : IStatModStrategy<float>
         {
+            public ulong hash { get; set; } // For removal comparisons 
             public Func<float, float> func { get; set; }
 
-            public SpeedModifier(Func<float, float> func)
+            public SpeedModifier(Expression<Func<float, float>> expr)
             {
-                this.func = func;
+                hash = Hashing.Fnv1a64(expr.ToString());
+                func = expr.Compile();
             }
         }
         

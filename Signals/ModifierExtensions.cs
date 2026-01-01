@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using EMILtools.Extensions;
 using EMILtools.Signals;
 using EMILtools.Timers;
 using UnityEngine;
@@ -22,45 +23,66 @@ namespace EMILtools.Signals
 
             return false;
         }
-
-        // Contains decorator instance
-        public static bool ContainsDecorator<T, TMod>(
-            this List<Stat<T, TMod>.ModifierSlot> slots,
-            IStatModCustom<T, TMod> decorator)
-            where T : struct
-            where TMod : struct, IStatModStrategy<T>
-        {
-            foreach (var slot in slots)
-                if (ReferenceEquals(slot.decorator, decorator))
-                    return true;
-
-            return false;
-        }
+        
             
-        public static bool Remove<T, TMod>(this List<Stat<T, TMod>.ModifierSlot> modslots, Stat<T, TMod> stat, Func<T, T> func)
+        public static bool Remove<T, TMod>(this List<Stat<T, TMod>.ModifierSlot> modslots, Stat<T, TMod> stat, ulong hash)
             where T : struct
             where TMod : struct, IStatModStrategy<T>
         {
+            Debug.Log("Removal STARTED");
+
             for (int i = 0; i < modslots.Count; i++)
             {
+                Debug.Log($"Checking Mod slot {i} (continuing...) ");
+
                 if (modslots[i].modifier.GetType() != typeof(TMod)) continue;
+                
+                Debug.Log($"Found Mod slot of same type TMod {i}, which is {typeof(TMod)} (continuing...) ");
+
                 
                 // Edge Case Fix:
                 // Naked modifiers can be explicitly targed via their funcs
-                if (modslots[i].modifier.func != func) continue;
+                if (modslots[i].modifier.hash != hash) continue;
                 
-                if (modslots[i].decorator != null)
+                Debug.Log("Found modifier with same hash  (continuing...)");
+                
+                if (modslots[i].hasDecorators)
                 {
-                    // Edge Case Fix:
-                    // Multiple of the same Modifier (Speed Modifier)
-                    // Multiple of the Same Func (x => x * 2)
-                    // One will be removable
-                    if (modslots[i].decorator.removable == false) continue;
+                    Debug.Log("Slot has decorators (continuing...)");
 
-                    modslots[i].decorator.stat = stat;
-                    modslots[i].decorator?.OnRemove?.Invoke();
+                    foreach (var dec in modslots[i].decorators)
+                    {
+                        // Edge Case Fix:
+                        // Multiple of the same Modifier (Speed Modifier)
+                        // Multiple of the Same Func (x => x * 2)
+                        // One will be removable
+                        if (dec.removable == false) continue;
+                        Debug.Log("dec is removable (continuing...)");
+
+
+                        // Required: Setting stat here so OnRemove cb's can have access to Stat for removal operations
+                        dec.stat = stat;
+                        dec?.OnRemove?.Invoke();
+                    }
                 }
                 modslots.RemoveAt(i);
+                return true;
+            }
+            return false;
+        }
+        
+        public static bool RemoveDecoOnMod<T, TMod>(this List<Stat<T, TMod>.ModifierSlot> modslots, Stat<T, TMod> stat, ulong hash, IStatModCustom<T, TMod> deco)
+            where T : struct
+            where TMod : struct, IStatModStrategy<T>
+        {
+            Debug.Log("Removal STARTED");
+
+            for (int i = 0; i < modslots.Count; i++)
+            {
+                Debug.Log($"Checking Mod slot {i} (continuing...) ");
+                if (modslots[i].modifier.GetType() != typeof(TMod)) continue;
+                if (modslots[i].modifier.hash != hash) continue;
+                if (modslots[i].hasDecorators) modslots[i].RemoveDecorator(deco, stat);
                 return true;
             }
             return false;
@@ -76,21 +98,31 @@ namespace EMILtools.Signals
             return modslots;
         }
         
-        public static List<Stat<T, TMod>.ModifierSlot> Add<T, TMod>(this List<Stat<T,TMod>.ModifierSlot> modslots, IStatModCustom<T, TMod> decorator)
+        public static List<Stat<T, TMod>.ModifierSlot> Add<T, TMod>(this List<Stat<T,TMod>.ModifierSlot> modslots, List<IStatModCustom<T, TMod>> decorators)
             where T : struct
             where TMod : struct, IStatModStrategy<T>
         {
             for (int i = 0; i < modslots.Count; i++) {
+
+                foreach (var dec in decorators)
+                {
+                    // ? Is this already typed for this? Do i need this check at all
+                    if (modslots[i].modifier.GetType() != dec.linkType) continue; // No Match
+                    if (modslots[i].decorators == null)
+                    {
+                        // Still ned to struct quick copy on the first dec tho
+                        var slot = modslots[i];
+                        
+                        //Specify that the slot owns their own decorators, to avoid killing of the ref somewhere else
+                        slot.decorators = new List<IStatModCustom<T, TMod>>(decorators);
+                        modslots[i] = slot;
+                    }
                 
-                if (modslots[i].modifier.GetType() != decorator.linkType) continue; // No Match
-                
-                // Struct quick copy
-                var slot = modslots[i];
-                slot.decorator = decorator;
-                modslots[i] = slot; 
-                
-                slot.decorator.OnAdd?.Invoke();
-                break;
+                    // Avoid struct quick copy on subsequent adds
+                    // because we can just go straight to the list which is a ref
+                    // previous was only 1, so it had to be re-assigned
+                    modslots[i].decorators.AddGet(dec).OnAdd?.Invoke();
+                }
             }
             
             return modslots;
@@ -105,12 +137,21 @@ namespace EMILtools.Signals
             return val;
         }
         
+        public static T ApplyDecorators<T, TMod>(this List<IStatModCustom<T, TMod>> decorators, T val)
+            where T : struct
+            where TMod : struct, IStatModStrategy<T>
+        {
+            foreach (var dec in decorators) val = dec.Apply(val);
+            return val;
+        }
+        
         // Float only ext for Customs
         public static IStatModCustom<float, TMod> WithTimed<TMod>(this TMod mod, float duration)
             where TMod : struct, IStatModStrategy<float>
         {
             IStatModCustom<float, TMod> timedMod = new TimedModifier<float, TMod>(
-                mod.func,
+                mod.func, 
+                mod.hash,
                 new CountdownTimer(duration));
             
             return timedMod;
@@ -124,6 +165,7 @@ namespace EMILtools.Signals
             // that happens after sending the modifier to the IStatUser
             IStatModCustom<T, TMod> timedMod = new TimedModifier<T, TMod>(
                 mod.func,
+                mod.hash,
                 new CountdownTimer(duration));
             
             return timedMod;

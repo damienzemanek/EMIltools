@@ -11,6 +11,7 @@ namespace EMILtools.Extensions
     // and that creates a whole ahh new list.
     public static class DelegateEX
     {
+        
         public static bool Contains(this Delegate _delegate, Delegate _this)
         {
             if (_delegate == null) return false;

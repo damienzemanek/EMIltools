@@ -47,10 +47,10 @@ namespace EMILtools.Signals
             Debug.Log($"Added modifier {modType}");
             
             if (decorators.Length == 0) return;
-            if (decorators[0] is not IStatModCustom<T, TMod> customDecorator) return;
-            if (Methods.AddDecorator is not Action<IStatModCustom<T, TMod>> AddDecorator) return;
+            if (decorators is not IStatModCustom<T, TMod>[] decs) return;
+            if (Methods.AddDecorator is not Action<List<IStatModCustom<T, TMod>>> AddDecorators) return;
             Debug.Log($"Custom Modifier being handled... : {recipient}");
-            AddDecorator(customDecorator);
+            AddDecorators(decs.ToList());
         }
         
         /// <summary>
@@ -74,8 +74,8 @@ namespace EMILtools.Signals
                 return;
             }
             
-            if (Methods.RemoveModifierSlot is not Action<Func<T,T>> RemoveModifier) return;
-            RemoveModifier(strat.func);
+            if (Methods.RemoveModifierSlot is not Action<ulong> RemoveModifier) return;
+            RemoveModifier(strat.hash);
             Debug.Log($"Removed modifier {modType}");
         }
         
@@ -103,21 +103,23 @@ namespace EMILtools.Signals
                 var valueType = genericArgs[0];
                 var stratType = genericArgs[1];
                 var decoratorType = typeof(IStatModCustom<,>).MakeGenericType(valueType, stratType);
-                var removeParamType = typeof(Func<,>).MakeGenericType(valueType, valueType);
+                var decListType = typeof(List<>).MakeGenericType(decoratorType);
                 
                 // Extract required methods
                 var instance = field.GetValue(istatuser);
                 var addModifierMethod = field.FieldType.GetMethod("AddModifier");
-                var addDecoratorMethod = field.FieldType.GetMethod("AddDecorator",
-                    new[] { decoratorType } );
+                var addDecoratorMethod = field.FieldType.GetMethod("AddDecorators",
+                    new[] { decListType } );
                 var addRemoveMethod = field.FieldType.GetMethod("RemoveModifier",
-                    new [] { removeParamType} );
+                    new [] { typeof(ulong) } );
 
-                if (instance == null || addModifierMethod == null || addDecoratorMethod == null || removeParamType == null) {
-                    Debug.LogWarning($"[CacheStatFields] Skipping field {field.Name}: Instance or AddModifier method not found."); continue; }
+                if(instance == null) { Debug.LogWarning($"[CacheStatFields] Skipping field {field.Name}: Instance not found."); continue; } 
+                if(addModifierMethod == null) { Debug.LogWarning($"[CacheStatFields] Skipping field {field.Name}: AddModifierMethod not found."); continue; } 
+                if(addDecoratorMethod == null) { Debug.LogWarning($"[CacheStatFields] Skipping field {field.Name}: AddDecoratorMethod not found."); continue; } 
+                if(addRemoveMethod == null) { Debug.LogWarning($"[CacheStatFields] Skipping field {field.Name}: AddRemoveMethod not found."); continue; } 
+
                 
                 Debug.Log($"[CacheStatFields] Processing field '{field.Name}' -> ValueType: {valueType.Name}, StratType: {stratType.Name}");
-
                 try 
                 {
                     // Create delegates
@@ -127,16 +129,22 @@ namespace EMILtools.Signals
                         addModifierMethod
                     );
 
+                    Debug.Log($"[CacheStatFields] Add Modifier Cb Created");
                     var addDecCb = Delegate.CreateDelegate(
-                        typeof(Action<>).MakeGenericType(decoratorType),
+                        typeof(Action<>).MakeGenericType(decListType),
                         instance,
                         addDecoratorMethod
                     );
+                    Debug.Log($"[CacheStatFields] Add Decorator Cb Created");
+
+
                     var AddRmCb = Delegate.CreateDelegate(
-                        typeof(Action<>).MakeGenericType(removeParamType),
+                        typeof(Action<ulong>),
                         instance,
                         addRemoveMethod
                     );
+                    Debug.Log($"[CacheStatFields] Remove Method Cb Created");
+
 
                     // Update the Instance-specific Router (Multi-entity safety)
                     if (istatuser.router.MethodCache_MutateModifiers != null)
