@@ -73,9 +73,3 @@ The systems are designed to interact fluently. Calling `.WithTimer(duration)` on
 2.  **Subscribes** to the timer's expiration event.
 3.  **Removes** the modifier and restores the base stat value automatically when the timer finishes.
 
-### Advanced Patterns Included
-
-- **Delegate.CreateDelegate**: High-speed reflection by caching method pointers.
-- **EqualityComparer<T>.Default**: Boxing-free generic comparisons.
-- **Expression Tree Hashing**: Identifies anonymous logic (lambdas) using FNV-1a hashing for precise removal.
-- **Lazy Initialization**: Delays list creation to save memory on inactive entities.
