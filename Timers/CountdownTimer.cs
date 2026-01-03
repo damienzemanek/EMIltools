@@ -8,8 +8,19 @@ namespace EMILtools.Timers
     {
         public CountdownTimer(Ref<float> _initialTime) : base(_initialTime) { }
         public CountdownTimer(float _initialTime) : base(new Ref<float>(_initialTime)) { }
+        
+        public CountdownTimer(float _initialTime,
+            Action[] OnTimerStartCbs = null,
+            Action[] OnTimerTickCbs = null,
+            Action[] OnTimerStopCbs = null)
+        : base
+            (new Ref<float>(_initialTime),
+            OnTimerStartCbs,
+            OnTimerTickCbs,
+            OnTimerStopCbs) 
+        { }
 
-
+        
         public override void TickImplementation(float deltaTime)
         {
             if (Time > 0) Time -= deltaTime;

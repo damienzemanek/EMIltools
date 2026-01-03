@@ -2,6 +2,7 @@ using UnityEngine;
 
 public static class Hashing
 {
+    
     public static ulong Fnv1a64(string text)
     {
         const ulong offset = 1469598103934665603UL;

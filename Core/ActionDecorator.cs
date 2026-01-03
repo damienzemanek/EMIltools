@@ -37,5 +37,11 @@ namespace EMILtools.Core
         public void Invoke() => _action?.Invoke();
         public void Add(Action cb) => _action += cb;
         public void Remove(Action cb) => _action -= cb;
+
+        public void Add(Action[] cbs)
+            { foreach (var cb in cbs) Add(cb); }
+        
+        public void Remove(Action[] cbs)
+            { foreach (var cb in cbs) Remove(cb); }
     }
 }

@@ -24,6 +24,19 @@ namespace EMILtools.Timers
             initialTime = _initialTime;
             isRunning = false;
         }
+        
+        public Timer(Ref<float> _initialTime,
+                Action[] OnTimerStartCbs = null,
+                Action[] OnTimerTickCbs = null,
+                Action[] OnTimerStopCbs = null)
+        {
+            if(OnTimerStartCbs != null && OnTimerStartCbs.Length > 0) OnTimerStart.Add(OnTimerStartCbs);
+            if(OnTimerTickCbs != null && OnTimerTickCbs.Length > 0) OnTimerTick.Add(OnTimerTickCbs);
+            if(OnTimerStopCbs != null && OnTimerStopCbs.Length > 0) OnTimerStop.Add(OnTimerStopCbs);
+            
+            initialTime = _initialTime;
+            isRunning = false;
+        }
 
         public void Start()
         {

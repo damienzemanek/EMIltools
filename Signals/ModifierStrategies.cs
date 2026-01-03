@@ -9,7 +9,7 @@ namespace EMILtools.Signals
     {
         public interface IStatModStrategy<T> where T : struct
         {
-            public ulong hash { get; set; }
+            public ulong hash { get; set; } // For removal comparisons, with two or more of the Same Modifier in the slots
             public Func<T, T> func { get; set; }
 
             public T Apply(T input) => func(input);
@@ -22,7 +22,7 @@ namespace EMILtools.Signals
         [Serializable]
         public struct SpeedModifier : IStatModStrategy<float>
         {
-            public ulong hash { get; set; } // For removal comparisons 
+            public ulong hash { get; set; }
             public Func<float, float> func { get; set; }
 
             public SpeedModifier(Expression<Func<float, float>> expr)
