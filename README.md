@@ -39,7 +39,7 @@ public class Player : MonoBehaviour, ITimerUser
 
 ### Signals & Modifiers System
 
-An elite framework for modifying entity stats (Health, Speed, etc.) using reflection-backed discovery and the decorator pattern.
+An architectural framework for modifying entity stats (Health, Speed, etc.) using reflection-backed discovery and the decorator pattern.
 
 #### Key Features
 - **Type-Safe Routing**: Uses `typeof(TMod)` as a unique key for $O(1)$ lookups—no magic strings.
