@@ -1,11 +1,5 @@
 ### EMILtools: Signals & Timers System
 
-Here is the requested documentation file. It provides a human-readable overview of the high-performance **Signals & Modifiers** and **Timers** systems, including their seamless "Bridge" integration.
-
----
-
-### EMILtools: Signals & Timers System
-
 A high-performance, type-safe architecture for Unity, designed to handle global timing and dynamic stat modification with zero-allocation math and fluent API design.
 
 ### Installation
@@ -14,11 +8,14 @@ Copy the `EMILtools-Private` folder into your Unity project's `Assets` directory
 
 ### Signals & Modifiers System
 
-This is an elite framework for modifying entity stats (Health, Speed, etc.) using reflection-backed discovery and a powerful decorator pattern. It’s built to be as fast as possible while staying completely flexible.
+A framework for modifying entity stats (Health, Speed, etc.).
+- Uses reflection discovery and caching only in Awake() when an IStatUser is initialized.
+- struct based Modifiers to be memory-efficient that use the Decorator pattern to create special Modifiers like Timed Modifiers.
 
 #### Key Features
-- **Phantom Tags (Type-Safe Routing)**: We use "Tags" (empty structs like `Speed` or `Health`) to identify stats. This means `typeof(TTag)` is your unique key—no more magic strings or typo-related bugs.
-- **Zero-Boxing Heterogeneity**: Thanks to some advanced JIT "Double Elision" tricks, you can have a list of different modifier types (Adders, Multipliers, etc.) without ever hitting the heap. It’s pure value-type performance.
+- **Type-Safe Routing**: "Tags" (empty structs like `Speed` or `Health`) are used to identify stats. This means `typeof(TTag)` is your unique key—no more magic strings or typo-related bugs.
+- **SoC of Math and Tags**: Tags are completely seperate from modifiers, meaning you can tag your stats, once and don't have to deal with moving a container around to reference your stat.
+- **Zero-Boxing Heterogeneous Storage of Modifiers**: Using a JIT "Double Elision" resolve method, you can have a list of different modifier types (Adders, Multipliers, etc.) without ever hitting the heap. It’s pure value-type performance.
 - **Decorator Support**: You can wrap any modifier in timers, loggers, or custom logic seamlessly without touching the core math.
 
 #### Usage Example
@@ -26,17 +23,24 @@ This is an elite framework for modifying entity stats (Health, Speed, etc.) usin
 ```csharp
 public class Enemy : MonoBehaviour, IStatUser 
 {
-    // The system automatically finds and caches these at startup
-    public Stat<float, Speed> speed = new(10f);
+    // The only variable that is implemented via IStatUser
     public Dictionary<Type, IStat> Stats { get; set; }
 
+    // Create your own custom stats using your own Stat Identifier Tags. For instace: Speed
+    public Stat<float, Speed> speed = new(10f);
+
+
+    // Cache your stats in awake so you don't have any manual work, Its just plug and play to modify them
     void Awake() => this.CacheStats();
 
-    public void ApplyFreeze() 
+
+    public void GetFrozen() 
     {
-        // One-liner: Multiply speed by 0.5 for 3 seconds
-        // The compiler enforces that you only apply Speed mods to Speed stats
-        this.Modify<Speed>(new MathMod(x => x * 0.5f)).WithTimer(3f);
+        // Initialize any modifiers
+        var halfspeed = new Mathmod(x => x * 0.5f);  [ Multiply speed by 0.5 for 3 seconds ]
+
+        // FluentAPI: Easily call decorators to add additional functionality to Modifiers
+        this.Modify<Speed>(halfspeed).WithTimer(3f);
     }
 }
 ```
@@ -48,13 +52,14 @@ A centralized ticking engine designed to handle thousands of concurrent timers w
 #### Key Features
 - **Global Ticker**: A persistent, hidden `MonoBehaviour` that handles all `Update` and `FixedUpdate` cycles in one place.
 - **Leak-Safe**: Uses `ConditionalWeakTable` to prevent memory leaks. If your object gets destroyed, the timer system won't keep it alive.
-- **Fast Removal**: We use custom $O(1)$ removal logic (swap-and-pop) so cleaning up expired timers is practically free.
+- **Fast Removal**: Using a $O(1)$ removal logic (swap-and-pop) so cleaning up expired timers is practically free.
 
 #### Usage Example
 
 ```csharp
 public class Player : MonoBehaviour, ITimerUser 
 {
+    // Declare any timers
     private CountdownTimer sprintTimer = new(5f);
 
     void Awake() 
@@ -66,16 +71,11 @@ public class Player : MonoBehaviour, ITimerUser
         this.Sub(sprintTimer.OnTimerStop, () => Debug.Log("Sprint Over!"));
     }
 
+    // Customize your own callbacks
     void OnEnable() => sprintTimer.Start();
-    
+
+    // Easily unsubscribe everything at once with ShutdownTimers
     void OnDestroy() => this.ShutdownTimers();
 }
 ```
 
-### The "Bridge" Integration
-
-The magic happens where these two systems meet. When you call `.WithTimer(duration)` on a stat modification, the system handles the heavy lifting for you:
-
-1.  **Injects** a `CountdownTimer` directly into the modifier slot.
-2.  **Subscribes** to the timer's expiration event automatically.
-3.  **Cleans Up**: When the timer finishes, it removes the modifier and restores the base stat value. You don't have to write a single line of cleanup code.
