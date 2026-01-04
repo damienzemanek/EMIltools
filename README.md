@@ -37,7 +37,7 @@ public class Enemy : MonoBehaviour, IStatUser
     public void GetFrozen() 
     {
         // Initialize any modifiers
-        var halfspeed = new Mathmod(x => x * 0.5f);  [ Multiply speed by 0.5 for 3 seconds ]
+        var halfspeed = new Mathmod(x => x * 0.5f); //[ Multiply speed by 0.5 for 3 seconds ]
 
         // FluentAPI: Easily call decorators to add additional functionality to Modifiers
         this.Modify<Speed>(halfspeed).WithTimer(3f);
